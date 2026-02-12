@@ -6,10 +6,9 @@ plotting code. This version runs and produces output, but has known limitations 
 technical debt.
 
 ## What works
-- Live data ingest (serial or file)
-- DO2i plotting
-- Threshold visualization (e.g. <270 mL/min/m²)
-- Basic AUC calculation
+- all numerics buttons and calculations
+- AUC shading
+- 
 
 ## Known issues / limitations
 - Architecture needs refactoring
