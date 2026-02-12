@@ -8,6 +8,9 @@
 #   • New CLI flag: --param N (1-based) to start on a specific numeric field at boot.
 #
 # Everything else remains identical to 11/1/25final (+ParamCycle).
+#
+# Additional fix (only this vs your pasted version):
+#   • Fix alpha flicker by creating the fill artist once and updating its vertices (no remove/recreate each frame).
 
 import argparse, time, re, math, sys, threading, queue
 from collections import deque
@@ -19,6 +22,7 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.widgets import Button
 from matplotlib.ticker import FuncFormatter
+from matplotlib.collections import PolyCollection
 
 try:
     import serial
@@ -236,7 +240,12 @@ class App:
         self.ax_main.grid(True, alpha=0.25)
 
         self.th_line = self.ax_main.axhline(DO2I_ALERT, color="red", lw=1.2, alpha=0.9)
-        self.fill_poly = None
+
+        # Persistent fill artist to prevent alpha flicker
+        self.fill_poly = PolyCollection([], alpha=0.22, edgecolors="none")
+        self.ax_main.add_collection(self.fill_poly)
+        self.fill_poly.set_visible(False)
+
         self.metric_text_artists: List[plt.Text] = []
 
         self.ax_main.xaxis.set_major_formatter(FuncFormatter(lambda x, pos: f"{x:.0f}"))
@@ -346,14 +355,70 @@ class App:
         self.ax_main.set_ylim(lo, hi)
 
     def _update_fill(self, x_min, y, thresh):
-        if self.fill_poly is not None:
-            self.fill_poly.remove()
-            self.fill_poly = None
-        if len(x_min) < 2:
+        # Update a persistent PolyCollection's verts (no remove/recreate = no alpha flicker)
+        n = len(x_min)
+        if n < 2:
+            self.fill_poly.set_visible(False)
+            self.fill_poly.set_verts([])
             return
-        self.fill_poly = self.ax_main.fill_between(
-            x_min, y, thresh, where=(y < thresh), interpolate=True, alpha=0.22
-        )
+
+        x = np.asarray(x_min, dtype=float)
+        y = np.asarray(y, dtype=float)
+        below = y < thresh
+
+        polys = []
+        i = 0
+        while i < n:
+            if not below[i]:
+                i += 1
+                continue
+
+            start = i
+            while i + 1 < n and below[i + 1]:
+                i += 1
+            end = i  # inclusive
+            i += 1
+
+            # left threshold crossing
+            if start > 0:
+                x0, y0 = x[start - 1], y[start - 1]
+                x1, y1 = x[start], y[start]
+                if y1 != y0:
+                    x_left = x0 + (thresh - y0) * (x1 - x0) / (y1 - y0)
+                else:
+                    x_left = x1
+            else:
+                x_left = x[start]
+
+            # right threshold crossing
+            if end < n - 1:
+                x0, y0 = x[end], y[end]
+                x1, y1 = x[end + 1], y[end + 1]
+                if y1 != y0:
+                    x_right = x0 + (thresh - y0) * (x1 - x0) / (y1 - y0)
+                else:
+                    x_right = x0
+            else:
+                x_right = x[end]
+
+            xs = [x_left]
+            ys = [thresh]
+            xs.extend(x[start:end + 1].tolist())
+            ys.extend(y[start:end + 1].tolist())
+            xs.append(x_right)
+            ys.append(thresh)
+
+            polys.append(np.column_stack([xs, ys]))
+
+        if not polys:
+            self.fill_poly.set_visible(False)
+            self.fill_poly.set_verts([])
+            return
+
+        # match fill to line color
+        self.fill_poly.set_facecolor(self.line_do2i.get_color())
+        self.fill_poly.set_verts(polys)
+        self.fill_poly.set_visible(True)
 
     # ---------- Metrics ----------
     def _draw_metrics(self, t_all, v_all):
