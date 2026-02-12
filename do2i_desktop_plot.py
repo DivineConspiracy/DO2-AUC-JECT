@@ -79,7 +79,7 @@ class DataSource:
 
     def _sim_loop(self):
         t0 = time.time()
-        do2i = 320.0
+        do2i = 120.0
         drift = -0.02
         rng = np.random.default_rng(42)
         while not self._stop.is_set():
@@ -368,7 +368,7 @@ class App:
         entries = [
             ("Current DO₂i", "mL/min/m²", current_val, lambda val: val < DO2I_ALERT),
             ("Threshold", "mL/min/m²", DO2I_ALERT, lambda val: False),
-            ("Minutes under threshold", "min", stats.minutes_under, lambda val: False),
+            ("Minutes under threshold", "min", stats.minutes_under, lambda val: val > 9.0),
             ("Total AUC deficit", "min·(mL/min/m²)", stats.auc_total, lambda val: stats.auc_total > AUC_TOTAL_ALERT),
             ("Nadir", "mL/min/m²", stats.nadir, lambda val: val < DO2I_ALERT),
             ("Longest episode", "min", stats.longest_episode_min, lambda val: False),
