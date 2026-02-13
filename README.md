@@ -36,3 +36,5 @@ Run in SIMULATION mode:
     py do2i_desktop_plot.py -sim
 
 Replace COM3 with the correct serial port from Device Manager.
+
+For research and educational purposes only.  Not intended for clinical decision making.
