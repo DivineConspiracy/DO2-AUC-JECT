@@ -37,4 +37,8 @@ Run in SIMULATION mode:
 
 Replace COM3 with the correct serial port from Device Manager.
 
+______________________________________________________________________________________________
+______________________________________________________________________________________________
+______________________________________________________________________________________________
+
 For research and educational purposes only.  Not intended for clinical decision making.
