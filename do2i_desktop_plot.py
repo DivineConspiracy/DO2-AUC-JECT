@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
-# do2i_desktop_plot.py
-# Version: 11/1/25final + ParamCycle + ParamBoot + VisibleAutoscale
-#
-# Changes (only these):
-#   • Y-axis autoscale now uses the *visible* series (vv), so it rescales when you change params.
-#   • When cycling to the next param, buffers are cleared so the new param takes over cleanly.
-#   • New CLI flag: --param N (1-based) to start on a specific numeric field at boot.
-#
-# Everything else remains identical to 11/1/25final (+ParamCycle).
-#
-# Additional fix (only this vs your pasted version):
-#   • Fix alpha flicker by creating the fill artist once and updating its vertices (no remove/recreate each frame).
-#   • Shade AUC region PINK (not line-color).
+
+"""
+DO2i AUC Monitor
+Real-time DO₂i plotting with deficit/AUC metrics.
+
+Run with live serial data:
+    ./do2i_desktop_plot.py --port /dev/ttyUSB0 --baud 38400
+
+Run in simulation mode:
+    ./do2i_desktop_plot.py -sim
+
+Optional:
+    --param N   Plot the Nth numeric field from each serial line (1-based index)
+"""
 
 import argparse, time, re, math, sys, threading, queue
 from collections import deque
