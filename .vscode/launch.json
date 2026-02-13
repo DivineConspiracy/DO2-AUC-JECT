@@ -1,0 +1,13 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "DO2i Sim Mode",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/do2i_desktop_plot.py",
+            "console": "integratedTerminal",
+            "args": ["-sim"]
+        }
+    ]
+}

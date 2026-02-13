@@ -11,6 +11,7 @@
 #
 # Additional fix (only this vs your pasted version):
 #   • Fix alpha flicker by creating the fill artist once and updating its vertices (no remove/recreate each frame).
+#   • Shade AUC region PINK (not line-color).
 
 import argparse, time, re, math, sys, threading, queue
 from collections import deque
@@ -44,7 +45,7 @@ def get_args():
     p.add_argument("--baud", type=int, default=38400, help="Baud rate")
     p.add_argument("--param", "-param", type=int, default=None,
                    help="Start by plotting numeric field N (1-based) from each serial line")
-    p.add_argument("--title", type=str, default="DO₂i AUC Monitor (11/1/25final)")
+    p.add_argument("--title", type=str, default="DO₂i AUC Monitor")
     return p.parse_args()
 
 # -------------------- Data Source --------------------
@@ -83,12 +84,12 @@ class DataSource:
 
     def _sim_loop(self):
         t0 = time.time()
-        do2i = 120.0
+        do2i = 220.0
         drift = -0.02
         rng = np.random.default_rng(42)
         while not self._stop.is_set():
             t = time.time() - t0
-            wobble = 25.0 * math.sin(2*math.pi*t/90.0) + 10.0*rng.normal()
+            wobble = 25.0 * math.sin(2*math.pi*t/500.0) + 10.0*rng.normal()
             trend = drift * (t/60.0)
             val = max(50.0, min(600.0, do2i + wobble + trend))
             self.q.put((t, val))
@@ -241,8 +242,13 @@ class App:
 
         self.th_line = self.ax_main.axhline(DO2I_ALERT, color="red", lw=1.2, alpha=0.9)
 
-        # Persistent fill artist to prevent alpha flicker
-        self.fill_poly = PolyCollection([], alpha=0.22, edgecolors="none")
+        # Persistent fill artist to prevent alpha flicker (PINK)
+        self.fill_poly = PolyCollection(
+            [],
+            facecolors=["#f6a6c1"],  # soft pink
+            alpha=0.22,
+            edgecolors="none"
+        )
         self.ax_main.add_collection(self.fill_poly)
         self.fill_poly.set_visible(False)
 
@@ -415,8 +421,7 @@ class App:
             self.fill_poly.set_verts([])
             return
 
-        # match fill to line color
-        self.fill_poly.set_facecolor(self.line_do2i.get_color())
+        # keep pink (do NOT match line color)
         self.fill_poly.set_verts(polys)
         self.fill_poly.set_visible(True)
 
@@ -437,7 +442,8 @@ class App:
             ("Total AUC deficit", "min·(mL/min/m²)", stats.auc_total, lambda val: stats.auc_total > AUC_TOTAL_ALERT),
             ("Nadir", "mL/min/m²", stats.nadir, lambda val: val < DO2I_ALERT),
             ("Longest episode", "min", stats.longest_episode_min, lambda val: False),
-            ("Max single-episode AUC", "min·(mL/min/m²)", stats.max_single_auc, lambda val: stats.max_single_auc > AUC_SINGLE_ALERT),
+            ("Max single-episode AUC", "min·(mL/min/m²)", stats.max_single_auc,
+             lambda val: stats.max_single_auc > AUC_SINGLE_ALERT),
         ]
         y0, dy = 0.92, 0.122
         for i, (label, units, val, is_alert) in enumerate(entries):
