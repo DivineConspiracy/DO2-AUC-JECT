@@ -2,16 +2,36 @@
 
 """
 DO2i AUC Monitor
-Real-time DO₂i plotting with deficit/AUC metrics.
+Real-time DO₂i plotting with AUC deficit metrics.
 
-Run with live serial data:
+────────────────────────────────────────
+LINUX / macOS
+────────────────────────────────────────
+
+Run with LIVE serial data:
     ./do2i_desktop_plot.py --port /dev/ttyUSB0 --baud 38400
 
-Run in simulation mode:
+Run in SIMULATION mode:
     ./do2i_desktop_plot.py -sim
 
-Optional:
-    --param N   Plot the Nth numeric field from each serial line (1-based index)
+(If not executable, use:)
+    python3 do2i_desktop_plot.py -sim
+
+
+────────────────────────────────────────
+WINDOWS (Command Prompt or PowerShell)
+────────────────────────────────────────
+
+Run with LIVE serial data:
+    python do2i_desktop_plot.py --port COM3 --baud 38400
+
+Run in SIMULATION mode:
+    python do2i_desktop_plot.py -sim
+
+(If 'python' is not recognized, try:)
+    py do2i_desktop_plot.py -sim
+
+Replace COM3 with the correct serial port from Device Manager.
 """
 
 import argparse, time, re, math, sys, threading, queue
