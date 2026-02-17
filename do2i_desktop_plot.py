@@ -459,7 +459,7 @@ class App:
         entries = [
             ("Current DO₂i", "mL/min/m²", current_val, lambda val: val < DO2I_ALERT),
             ("Threshold", "mL/min/m²", DO2I_ALERT, lambda val: False),
-            ("Minutes under threshold", "min", stats.minutes_under, lambda val: val > 9.0),
+            ("Minutes under threshold", "min", stats.minutes_under, lambda val: val > 15.0),
             ("Total AUC deficit", "min·(mL/min/m²)", stats.auc_total, lambda val: stats.auc_total > AUC_TOTAL_ALERT),
             ("Nadir", "mL/min/m²", stats.nadir, lambda val: val < DO2I_ALERT),
             ("Longest episode", "min", stats.longest_episode_min, lambda val: False),
@@ -468,7 +468,7 @@ class App:
         ]
         y0, dy = 0.92, 0.122
         for i, (label, units, val, is_alert) in enumerate(entries):
-            y = y0 - i * dy
+            y = y0 - i * dy 
             lab = self.ax_left.text(0.02, y, f"{label} ({units})", fontsize=10.5, ha="left", va="top")
             val_str = "—" if (val is None or not math.isfinite(val)) else f"{val:,.2f}"
             color = "red" if (math.isfinite(val) and is_alert(val)) else "black"
