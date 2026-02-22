@@ -243,6 +243,10 @@ class App:
         self.t_buf: Deque[float] = deque(maxlen=HARD_MAX_POINTS)
         self.v_buf: Deque[float] = deque(maxlen=HARD_MAX_POINTS)
 
+        # NEW: pause + flashing border state
+        self.paused = True          # ← start paused
+        self._pause_flash_on = True
+
         self.fig = plt.figure(figsize=(11, 6))
         self.fig.canvas.manager.set_window_title(args.title)
 
@@ -253,7 +257,7 @@ class App:
         # Main plot
         self.ax_main = self.fig.add_axes([0.28, 0.12, 0.52, 0.78])
 
-        # Buttons (existing stack + Next param)
+        # Buttons (existing stack + Next param + Start/Pause)
         self._make_buttons()
 
         (self.line_do2i,) = self.ax_main.plot([], [], lw=1.8)
@@ -288,6 +292,9 @@ class App:
         if start_idx is not None:
             self.btn_param.label.set_text(f"Param {start_idx+1}")
 
+        # Ensure initial button style reflects initial state
+        self._apply_pause_button_style()
+
     # ---------- Buttons ----------
     def _make_buttons(self):
         bx, bw, bh, gap = 0.83, 0.13, 0.06, 0.012
@@ -317,6 +324,41 @@ class App:
         self.btn_param = Button(self.btn_ax_param, "Next param")
         self.btn_param.on_clicked(self._next_param)
 
+        # NEW: Start/Pause (below "Next param")
+        self.btn_ax_pause = self.fig.add_axes([bx, y0 - 2*step, bw, bh])
+        # Set explicit colors so hover doesn't turn gray
+        self.btn_pause = Button(self.btn_ax_pause, "Pause", color="#00cc44", hovercolor="#00cc44")
+        self.btn_pause.on_clicked(self._toggle_pause)
+
+        # Give the pause axes a border we can animate
+        self.btn_ax_pause.patch.set_edgecolor("#00ff66")
+        self.btn_ax_pause.patch.set_linewidth(1.8)
+
+    def _set_pause_button_colors(self, face: str, edge: str, lw: float):
+        # Button has its own face + hover colors; axes patch also needs to match.
+        self.btn_pause.color = face
+        self.btn_pause.hovercolor = face  # prevents default gray hover
+        self.btn_ax_pause.set_facecolor(face)
+        self.btn_ax_pause.patch.set_edgecolor(edge)
+        self.btn_ax_pause.patch.set_linewidth(lw)
+
+    def _apply_pause_button_style(self):
+        if self.paused:
+            # Paused: yellow, black border, text "Start", no flashing border
+            self.btn_pause.label.set_text("Start")
+            self._set_pause_button_colors(face="#ffeb3b", edge="black", lw=1.0)
+        else:
+            # Running: green, thin-ish flashing green border, text "Pause"
+            self.btn_pause.label.set_text("Pause")
+            # base style; border flashing is handled in _on_frame
+            self._set_pause_button_colors(face="#00cc44", edge="#00ff66", lw=1.8)
+
+    def _toggle_pause(self, _evt):
+        self.paused = not self.paused
+        self._pause_flash_on = True  # reset flash phase when toggling
+        self._apply_pause_button_style()
+        self.fig.canvas.draw_idle()
+
     def _next_param(self, _evt):
         # Advance source index
         self.src.cycle_param()
@@ -332,9 +374,15 @@ class App:
 
     # ---------- Drawing ----------
     def _on_frame(self, _):
-        for t, v in self.src.get_many():
-            self.t_buf.append(t)
-            self.v_buf.append(v)
+        # Drain queue every frame so it doesn't backlog.
+        new_points = self.src.get_many()
+
+        # Only append new points when running (not paused).
+        if not self.paused:
+            for t, v in new_points:
+                self.t_buf.append(t)
+                self.v_buf.append(v)
+        # If paused: discard new_points intentionally (freeze display, no backlog)
 
         if not self.t_buf:
             return
@@ -370,6 +418,21 @@ class App:
         if self.src.param_index is not None and self.src.last_field_count > 0:
             idx = (self.src.param_index % self.src.last_field_count) + 1
             self.btn_param.label.set_text(f"Param {idx}")
+
+        # Flashing outline ONLY when running (Pause visible)
+        if not self.paused:
+            self._pause_flash_on = not self._pause_flash_on
+            edge = "#00ff66" if self._pause_flash_on else "#00a83a"  # both green, different brightness
+            self.btn_ax_pause.patch.set_edgecolor(edge)
+            self.btn_ax_pause.patch.set_linewidth(1.8)
+
+            # NEW: flash "Pause" text color black <-> white at same rate as border
+            self.btn_pause.label.set_color("white" if self._pause_flash_on else "black")
+        else:
+            # Ensure paused is stable black border + stable text color
+            self.btn_ax_pause.patch.set_edgecolor("black")
+            self.btn_ax_pause.patch.set_linewidth(1.0)
+            self.btn_pause.label.set_color("black")
 
     def _autoscale_y(self, values_visible):
         if len(values_visible) == 0:
@@ -468,7 +531,7 @@ class App:
         ]
         y0, dy = 0.92, 0.122
         for i, (label, units, val, is_alert) in enumerate(entries):
-            y = y0 - i * dy 
+            y = y0 - i * dy
             lab = self.ax_left.text(0.02, y, f"{label} ({units})", fontsize=10.5, ha="left", va="top")
             val_str = "—" if (val is None or not math.isfinite(val)) else f"{val:,.2f}"
             color = "red" if (math.isfinite(val) and is_alert(val)) else "black"
