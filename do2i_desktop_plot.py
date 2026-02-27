@@ -105,16 +105,49 @@ class DataSource:
 
     def _sim_loop(self):
         t0 = time.time()
-        do2i = 220.0
+        do2i = 270.0
         drift = -0.02
         rng = np.random.default_rng(42)
+
+        # state variables
+        cumulative_drift = 0.0
+        event = 0.0
+
         while not self._stop.is_set():
             t = time.time() - t0
-            wobble = 25.0 * math.sin(2*math.pi*t/500.0) + 10.0*rng.normal()
-            trend = drift * (t/60.0)
+
+            # slow random walk (baseline wander)
+            cumulative_drift += 0.02 * rng.normal()
+
+            # occasional transient event (irregular jump)
+            if rng.random() < 0.01:
+                event += rng.uniform(-12, 12)
+
+            # exponential decay of event
+            event *= 0.97
+
+            # frequency modulation so it won't trace a perfect arc
+            p1 = 150.0 + 25.0 * math.sin(2 * math.pi * t / 500.0) + 2 * rng.normal()
+            p1 = max(60.0, p1)  # keep period sane
+
+            # amplitude modulation
+            amp1 = 18.0 + 6.0 * math.sin(2 * math.pi * t / 700.0)
+
+            wobble = (
+                amp1 * math.sin(2 * math.pi * t / p1) +              # modulated primary
+                5.0  * math.sin(2 * math.pi * t / 433.0 + 0.7) +     # smaller secondary
+                cumulative_drift +
+                event +
+                0.3 * rng.normal()
+            )
+
+            trend = drift * (t / 60.0)
+
             val = max(50.0, min(600.0, do2i + wobble + trend))
             self.q.put((t, val))
-            time.sleep(0.5)
+
+            time.sleep(6)
+          
 
     def _serial_loop(self, port: str, baud: int):
         if serial is None:
@@ -270,8 +303,8 @@ class App:
         # Persistent fill artist to prevent alpha flicker (PINK)
         self.fill_poly = PolyCollection(
             [],
-            facecolors=["#f6a6c1"],  # soft pink
-            alpha=0.22,
+            facecolors=["#dd054d"],  # soft pink
+            alpha=0.35,
             edgecolors="none"
         )
         self.ax_main.add_collection(self.fill_poly)
